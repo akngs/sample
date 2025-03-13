@@ -53,17 +53,14 @@ fn main() {
         Ok(config) => config,
         Err(Error::InvalidSampleSize) => {
             eprintln!("Error: sample size must be a positive integer");
-            config::print_usage();
             process::exit(1);
         }
         Err(Error::InvalidSeedValue) => {
             eprintln!("Error: seed must be a valid number");
-            config::print_usage();
             process::exit(1);
         }
         Err(Error::InvalidPercentage) => {
             eprintln!("Error: percentage must be between 0 and 100");
-            config::print_usage();
             process::exit(1);
         }
         Err(Error::IoError(e)) => {

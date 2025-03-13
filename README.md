@@ -39,16 +39,19 @@ cargo test -- --nocapture
 ## Usage
 
 ```
-sample (<sample_size> | --percent <percentage>) [--header] [--seed <number>]
+sample [OPTIONS] [SAMPLE_SIZE]
+
+Arguments:
+  [SAMPLE_SIZE]  Number of lines to sample
+
+Options:
+  --percentage <VALUE>  Percentage of lines to sample (0-100)
+  --header             Preserve the first line as header (don't count in sampling)
+  --seed <NUMBER>      Set a fixed random seed for reproducible output
+  -h, --help          Print help
 ```
 
 The program reads lines from standard input and outputs a random sample. You can either specify a fixed number of lines to sample (using reservoir sampling) or a percentage of lines to sample (using random sampling).
-
-Options:
-- `<sample_size>`: Number of lines to sample (using reservoir sampling)
-- `--percent <value>`: Percentage of lines to sample (0-100)
-- `--header`: Preserve the first line as header (don't count in sampling)
-- `--seed <number>`: Set a fixed random seed for reproducible output
 
 ### Examples
 
@@ -61,7 +64,7 @@ cat data.txt | sample 10
 Sample 5% of lines from a file (using random sampling):
 
 ```bash
-cat data.txt | sample --percent 5
+cat data.txt | sample --percentage 5
 ```
 
 Sample from a CSV file, preserving the header:
