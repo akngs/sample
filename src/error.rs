@@ -4,6 +4,7 @@ use std::io;
 pub enum Error {
     InvalidSampleSize,
     InvalidSeedValue,
+    InvalidPercentage,
     IoError(io::Error),
 }
 

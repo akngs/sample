@@ -28,6 +28,30 @@ where
     reservoir
 }
 
+/// Performs random sampling based on a percentage
+/// Returns a random sample containing approximately percentage% of the input
+pub fn percentage_sample<T, I, R>(iter: I, percentage: f64, rng: &mut R) -> Vec<T>
+where
+    I: Iterator<Item = T>,
+    R: Rng,
+{
+    assert!(
+        (0.0..=100.0).contains(&percentage),
+        "Percentage must be between 0 and 100"
+    );
+
+    let prob = percentage / 100.0;
+    let mut result = Vec::new();
+
+    for item in iter {
+        if rng.gen::<f64>() < prob {
+            result.push(item);
+        }
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -111,5 +135,31 @@ mod tests {
         // Simulate sampling without header
         let sample = reservoir_sample(lines[1..].iter(), k, &mut rng);
         assert_eq!(sample.len(), k);
+    }
+
+    #[test]
+    fn test_percentage_sample() {
+        let items: Vec<i32> = (1..1001).collect(); // 1000 items
+        let percentage = 10.0; // 10%
+        let seed = [42; 32];
+        let mut rng = StdRng::from_seed(seed);
+
+        let sample = percentage_sample(items.iter(), percentage, &mut rng);
+
+        // With 10%, we expect roughly 100 items, but allow for random variation
+        assert!(sample.len() > 50 && sample.len() < 150);
+
+        // Check that all sampled items are from the original set
+        for item in &sample {
+            assert!(items.contains(item));
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "Percentage must be between 0 and 100")]
+    fn test_percentage_sample_invalid_percentage() {
+        let items = [1, 2, 3];
+        let mut rng = rand::thread_rng();
+        let _ = percentage_sample(items.iter(), 101.0, &mut rng);
     }
 }
