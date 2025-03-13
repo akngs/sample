@@ -3,9 +3,46 @@ use rand::{thread_rng, SeedableRng};
 use std::io::{self, BufRead};
 use std::process;
 
-use sample::{config, error::Error, percentage_sample_iter, reservoir_sample};
+use sample::{config, error::Error, percentage_sample_iter, reservoir_sample, CsvHashSampler};
 
 fn process_input(config: &config::Config) -> sample::Result<()> {
+    // Handle hash-based sampling with CSV library
+    if config.csv_mode && config.percentage.is_some() && config.hash_column.is_some() {
+        let percentage = config.percentage.unwrap();
+        let column_name = config.hash_column.as_ref().unwrap();
+
+        // Create a CSV reader from stdin
+        let stdin = io::stdin();
+        let reader = stdin.lock();
+
+        // Create the CSV hash sampler
+        let sampler = match CsvHashSampler::new(reader, percentage, column_name) {
+            Ok(s) => s,
+            Err(e) => {
+                if e.kind() == io::ErrorKind::InvalidInput {
+                    return Err(Error::ColumnNotFound(column_name.clone()));
+                } else {
+                    return Err(Error::IoError(e));
+                }
+            }
+        };
+
+        // Print the header
+        println!("{}", sampler.header().iter().collect::<Vec<_>>().join(","));
+
+        // Sample the data and print the results using the streaming iterator
+        for record_result in sampler {
+            match record_result {
+                Ok(record) => {
+                    println!("{}", record.iter().collect::<Vec<_>>().join(","));
+                }
+                Err(e) => return Err(Error::IoError(e)),
+            }
+        }
+        return Ok(());
+    }
+
+    // For other sampling methods, use the existing code
     let mut rng = if let Some(seed) = config.seed {
         StdRng::seed_from_u64(seed)
     } else {
@@ -16,9 +53,10 @@ fn process_input(config: &config::Config) -> sample::Result<()> {
     let mut lines = stdin.lock().lines();
 
     // Handle header if enabled
-    if config.preserve_header {
+    if config.csv_mode {
         if let Some(header) = lines.next() {
-            println!("{}", header?);
+            let header_str = header?;
+            println!("{}", header_str);
         }
     }
 
@@ -36,7 +74,7 @@ fn process_input(config: &config::Config) -> sample::Result<()> {
             }
         }
         (None, Some(percentage)) => {
-            // For percentage sampling, we can stream directly
+            // Regular percentage sampling
             let sampled_iter = percentage_sample_iter(lines_iter, percentage, rng);
             for line in sampled_iter {
                 println!("{}", line);
@@ -61,6 +99,18 @@ fn main() {
         }
         Err(Error::InvalidPercentage) => {
             eprintln!("Error: percentage must be between 0 and 100");
+            process::exit(1);
+        }
+        Err(Error::HashRequiresCsvMode) => {
+            eprintln!("Error: hash-based sampling requires --csv mode");
+            process::exit(1);
+        }
+        Err(Error::HashRequiresPercentage) => {
+            eprintln!("Error: hash-based sampling only works with --percentage option");
+            process::exit(1);
+        }
+        Err(Error::ColumnNotFound(column)) => {
+            eprintln!("Error: column '{}' not found in CSV header", column);
             process::exit(1);
         }
         Err(Error::IoError(e)) => {

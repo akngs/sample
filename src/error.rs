@@ -5,6 +5,9 @@ pub enum Error {
     InvalidSampleSize,
     InvalidSeedValue,
     InvalidPercentage,
+    HashRequiresCsvMode,
+    HashRequiresPercentage,
+    ColumnNotFound(String),
     IoError(io::Error),
 }
 

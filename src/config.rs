@@ -17,7 +17,7 @@ use crate::error::{Error, Result};
     cat data.txt | sample -p 5
 
     # Sample from a CSV file, preserving the header
-    cat data.csv | sample 10 -H
+    cat data.csv | sample 10 --csv
 
     # Get reproducible output using a fixed seed
     cat data.txt | sample 10 -s 42"
@@ -35,13 +35,19 @@ pub struct Config {
 
     /// Preserve the first line as header (don't count in sampling).
     /// Useful when working with CSV files or data with column headers.
-    #[arg(short = 'H', long = "header")]
-    pub preserve_header: bool,
+    #[arg(short = 'C', long = "csv")]
+    pub csv_mode: bool,
 
     /// Set a fixed random seed for reproducible output.
     /// Using the same seed will produce the same sample for identical input.
     #[arg(short = 's', long, value_name = "NUMBER")]
     pub seed: Option<u64>,
+
+    /// Column name to use for hash-based sampling.
+    /// When specified, rows with the same value in this column will be either all included or all excluded.
+    /// Only works with --csv and --percentage options.
+    #[arg(long = "hash", value_name = "COLUMN_NAME")]
+    pub hash_column: Option<String>,
 }
 
 fn percentage_validator(s: &str) -> std::result::Result<f64, String> {
@@ -65,6 +71,19 @@ impl Config {
             process::exit(1);
         }
 
+        // Validate hash-based sampling requirements
+        if self.hash_column.is_some() {
+            // Hash-based sampling requires CSV mode
+            if !self.csv_mode {
+                return Err(Error::HashRequiresCsvMode);
+            }
+
+            // Hash-based sampling only works with percentage
+            if self.percentage.is_none() {
+                return Err(Error::HashRequiresPercentage);
+            }
+        }
+
         Ok(())
     }
 }
@@ -85,7 +104,7 @@ mod tests {
         let config = Config::try_parse_from(["sample", "10"]).unwrap();
         assert_eq!(config.sample_size, Some(10));
         assert_eq!(config.percentage, None);
-        assert!(!config.preserve_header);
+        assert!(!config.csv_mode);
         assert!(config.seed.is_none());
     }
 
@@ -94,16 +113,16 @@ mod tests {
         let config = Config::try_parse_from(["sample", "--percentage", "5.5"]).unwrap();
         assert_eq!(config.sample_size, None);
         assert_eq!(config.percentage, Some(5.5));
-        assert!(!config.preserve_header);
+        assert!(!config.csv_mode);
         assert!(config.seed.is_none());
     }
 
     #[test]
     fn test_parse_args_with_header() {
-        let config = Config::try_parse_from(["sample", "10", "--header"]).unwrap();
+        let config = Config::try_parse_from(["sample", "10", "--csv"]).unwrap();
         assert_eq!(config.sample_size, Some(10));
         assert_eq!(config.percentage, None);
-        assert!(config.preserve_header);
+        assert!(config.csv_mode);
         assert!(config.seed.is_none());
     }
 
@@ -112,25 +131,25 @@ mod tests {
         let config = Config::try_parse_from(["sample", "10", "--seed", "42"]).unwrap();
         assert_eq!(config.sample_size, Some(10));
         assert_eq!(config.percentage, None);
-        assert!(!config.preserve_header);
+        assert!(!config.csv_mode);
         assert_eq!(config.seed, Some(42));
     }
 
     #[test]
     fn test_parse_args_with_header_and_seed() {
-        let config = Config::try_parse_from(["sample", "10", "--header", "--seed", "42"]).unwrap();
+        let config = Config::try_parse_from(["sample", "10", "--csv", "--seed", "42"]).unwrap();
         assert_eq!(config.sample_size, Some(10));
         assert_eq!(config.percentage, None);
-        assert!(config.preserve_header);
+        assert!(config.csv_mode);
         assert_eq!(config.seed, Some(42));
     }
 
     #[test]
     fn test_parse_args_with_percentage_and_header() {
-        let config = Config::try_parse_from(["sample", "--percentage", "10", "--header"]).unwrap();
+        let config = Config::try_parse_from(["sample", "--percentage", "10", "--csv"]).unwrap();
         assert_eq!(config.sample_size, None);
         assert_eq!(config.percentage, Some(10.0));
-        assert!(config.preserve_header);
+        assert!(config.csv_mode);
         assert!(config.seed.is_none());
     }
 
@@ -146,5 +165,49 @@ mod tests {
     fn test_parse_args_with_both_size_and_percentage() {
         let result = Config::try_parse_from(["sample", "10", "--percentage", "5"]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_args_with_hash_column() {
+        let config =
+            Config::try_parse_from(["sample", "--percentage", "10", "--csv", "--hash", "user_id"])
+                .unwrap();
+        assert_eq!(config.sample_size, None);
+        assert_eq!(config.percentage, Some(10.0));
+        assert!(config.csv_mode);
+        assert_eq!(config.hash_column, Some("user_id".to_string()));
+        assert!(config.seed.is_none());
+    }
+
+    #[test]
+    fn test_parse_args_with_hash_column_and_seed() {
+        let config = Config::try_parse_from([
+            "sample",
+            "--percentage",
+            "10",
+            "--csv",
+            "--hash",
+            "user_id",
+            "--seed",
+            "42",
+        ])
+        .unwrap();
+        assert_eq!(config.sample_size, None);
+        assert_eq!(config.percentage, Some(10.0));
+        assert!(config.csv_mode);
+        assert_eq!(config.hash_column, Some("user_id".to_string()));
+        assert_eq!(config.seed, Some(42));
+    }
+
+    #[test]
+    fn test_hash_requires_csv_mode() {
+        let result = Config::try_parse_from(["sample", "--percentage", "10", "--hash", "user_id"]);
+        assert!(result.is_err() || Config::validate(&result.unwrap()).is_err());
+    }
+
+    #[test]
+    fn test_hash_requires_percentage() {
+        let result = Config::try_parse_from(["sample", "10", "--csv", "--hash", "user_id"]);
+        assert!(result.is_err() || Config::validate(&result.unwrap()).is_err());
     }
 }

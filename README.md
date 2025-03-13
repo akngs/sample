@@ -44,14 +44,17 @@ Arguments:
 
 Options:
   -p, --percentage <VALUE>  Percentage of lines to sample (0-100)
-  -H, --header             Preserve the first line as header (don't count in sampling)
-  -s, --seed <NUMBER>      Set a fixed random seed for reproducible output
-  -h, --help              Print help
-  -V, --version           Print version
+  -C, --csv                 CSV mode (preserve the first line as header and don't count in sampling)
+  -s, --seed <NUMBER>       Set a fixed random seed for reproducible output
+      --hash <COLUMN_NAME>  Column name to use for hash-based sampling (only works with --csv and --percentage)
+  -h, --help                Print help
+  -V, --version             Print version
 
 The program reads lines from standard input and outputs a random sample. You can either:
+
 1. Specify a fixed number of lines to sample (using reservoir sampling), or
 2. Specify a percentage of lines to sample (using random sampling)
+3. Specify a percentage and column name for hash-based sampling (ensures rows with the same column value are either all included or all excluded)
 ```
 
 ### Examples
@@ -71,7 +74,13 @@ cat data.txt | sample -p 5
 Sample from a CSV file, preserving the header:
 
 ```bash
-cat data.csv | sample 10 -H
+cat data.csv | sample 10 --csv
+```
+
+Sample 10% of users from a CSV file (using hash-based sampling):
+
+```bash
+cat users.csv | sample -p 10 --csv --hash user_id
 ```
 
 Get reproducible output by setting a fixed seed:
@@ -100,7 +109,16 @@ When sampling a percentage of lines:
 2. This results in approximately (percentage)% of the lines being selected.
 3. The actual number of lines in the output may vary due to the random nature of the sampling.
 
-When using a fixed seed, the output will be deterministic for both sampling methods, making it useful for reproducible sampling.
+### Hash-based Sampling
+
+When sampling based on a column value (e.g., user_id):
+
+1. The program reads the CSV header to find the specified column.
+2. For each unique value in that column, it makes a consistent decision to include or exclude all rows with that value.
+3. This ensures that all rows with the same value in the specified column are either all included or all excluded.
+4. Approximately (percentage)% of unique values will be included in the sample.
+
+This is useful for sampling data where you want to ensure all records belonging to the same entity (e.g., user, account, etc.) are either all included or all excluded.
 
 ## Releases
 
