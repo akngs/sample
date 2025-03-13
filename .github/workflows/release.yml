@@ -1,0 +1,159 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Find the previous tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          # If there's no previous tag, get all commits
+          if [ -z "$PREVIOUS_TAG" ]; then
+            CHANGES=$(git log --pretty=format:"* %s (%h)")
+          else
+            CHANGES=$(git log --pretty=format:"* %s (%h)" $PREVIOUS_TAG..HEAD)
+          fi
+          
+          # Properly escape the output for GitHub Actions
+          CHANGES="${CHANGES//'%'/'%25'}"
+          CHANGES="${CHANGES//$'\n'/'%0A'}"
+          CHANGES="${CHANGES//$'\r'/'%0D'}"
+          
+          # Set the output
+          echo "CHANGELOG=$CHANGES" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            Release ${{ github.ref_name }} of sample CLI tool
+            
+            ## Changes
+            
+            ${{ steps.changelog.outputs.CHANGELOG }}
+            
+            ## Installation
+            
+            Download the appropriate binary for your platform and add it to your PATH.
+
+  build-and-upload:
+    needs: create-release
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: linux-x86_64
+            command: build
+            
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            name: linux-aarch64
+            command: build
+            use_cross: true
+            
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: macos-x86_64
+            command: build
+            
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: macos-aarch64
+            command: build
+            
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: windows-x86_64
+            command: build
+            extension: .exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross (if needed)
+        if: matrix.use_cross
+        run: cargo install cross
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build binary
+        run: |
+          if [ "${{ matrix.use_cross }}" = "true" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+        shell: bash
+
+      - name: Prepare binary
+        id: prepare_binary
+        run: |
+          BINARY_NAME="sample${{ matrix.extension || '' }}"
+          ARCHIVE_NAME="sample-${{ needs.create-release.outputs.version }}-${{ matrix.name }}"
+          
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            mkdir -p "$ARCHIVE_NAME"
+            cp "target/${{ matrix.target }}/release/$BINARY_NAME" "$ARCHIVE_NAME/"
+            cp "README.md" "LICENSE.md" "$ARCHIVE_NAME/"
+            7z a "$ARCHIVE_NAME.zip" "$ARCHIVE_NAME"
+            echo "artifact=$ARCHIVE_NAME.zip" >> $GITHUB_OUTPUT
+          else
+            mkdir -p "$ARCHIVE_NAME"
+            cp "target/${{ matrix.target }}/release/$BINARY_NAME" "$ARCHIVE_NAME/"
+            cp "README.md" "LICENSE.md" "$ARCHIVE_NAME/"
+            tar -czf "$ARCHIVE_NAME.tar.gz" "$ARCHIVE_NAME"
+            echo "artifact=$ARCHIVE_NAME.tar.gz" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./${{ steps.prepare_binary.outputs.artifact }}
+          asset_name: ${{ steps.prepare_binary.outputs.artifact }}
+          asset_content_type: application/octet-stream 

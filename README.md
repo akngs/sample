@@ -101,3 +101,38 @@ When sampling a percentage of lines:
 3. The actual number of lines in the output may vary due to the random nature of the sampling.
 
 When using a fixed seed, the output will be deterministic for both sampling methods, making it useful for reproducible sampling.
+
+## Releases
+
+Pre-built binaries for major platforms are available on the [GitHub Releases page](https://github.com/akngs/sample/releases). These binaries are automatically built and published when a new version tag is pushed to the repository.
+
+### Available Platforms
+
+- Linux (x86_64, aarch64)
+- macOS (x86_64, aarch64)
+- Windows (x86_64)
+
+### Installing from Pre-built Binaries
+
+1. Download the appropriate binary for your platform from the [Releases page](https://github.com/akngs/sample/releases)
+2. Extract the archive:
+   - For `.tar.gz` files: `tar -xzf sample-<version>-<platform>.tar.gz`
+   - For `.zip` files: Use your preferred unzip tool
+3. Move the binary to a location in your PATH, for example:
+   - Linux/macOS: `sudo mv sample-<version>-<platform>/sample /usr/local/bin/sample`
+   - Windows: Add the directory containing the executable to your PATH
+
+### Creating a New Release
+
+To create a new release with pre-built binaries:
+
+1. Update the version in `Cargo.toml`
+2. Commit your changes: `git commit -am "Bump version to x.y.z"`
+3. Create a new tag: `git tag -a vx.y.z -m "Release vx.y.z"`
+4. Push the tag: `git push origin vx.y.z`
+
+The GitHub Actions workflow will automatically:
+
+- Create a new release on GitHub
+- Build binaries for all supported platforms
+- Upload the binaries to the release
