@@ -1,7 +1,6 @@
 use rand::Rng;
 
 /// Performs reservoir sampling on an iterator of items
-/// Returns a random sample of size k
 pub fn reservoir_sample<T, I, R>(iter: I, k: usize, rng: &mut R) -> Vec<T>
 where
     I: Iterator<Item = T>,

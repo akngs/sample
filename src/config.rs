@@ -1,5 +1,4 @@
 use clap::Parser;
-use std::process;
 
 use crate::error::{Error, Result};
 
@@ -67,8 +66,9 @@ impl Config {
         }
 
         if self.sample_size.is_none() && self.percentage.is_none() {
-            eprintln!("Error: either sample size or percentage must be specified");
-            process::exit(1);
+            return Err(Error::MissingRequiredOption(
+                "either sample size or percentage must be specified".to_string(),
+            ));
         }
 
         // Validate hash-based sampling requirements

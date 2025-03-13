@@ -39,7 +39,6 @@ impl<T, I: Iterator<Item = T>, R: Rng> Iterator for PercentageSampleIter<I, R> {
 }
 
 /// Creates a streaming percentage sampler that returns an iterator
-/// Each item has percentage% chance of being included in the output
 pub fn percentage_sample_iter<T, I, R>(
     iter: I,
     percentage: f64,

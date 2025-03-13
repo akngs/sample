@@ -4,14 +4,15 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Read};
 
-/// A streaming iterator that performs hash-based sampling on CSV data using the csv library
-/// Rows with the same value in the specified column will be either all included or all excluded
+/// A streaming iterator that performs hash-based sampling on CSV data
 pub struct CsvHashSampler<R: Read> {
     reader: csv::Reader<R>,
     probability: f64,
     column_index: usize,
     column_values_decision: HashMap<String, bool>,
     header: csv::StringRecord,
+    current_record: Option<csv::StringRecord>,
+    done: bool,
 }
 
 // Implement Debug manually since csv::Reader doesn't implement Debug
@@ -22,6 +23,7 @@ impl<R: Read> fmt::Debug for CsvHashSampler<R> {
             .field("column_index", &self.column_index)
             .field("column_values_decision", &self.column_values_decision)
             .field("header", &self.header)
+            .field("done", &self.done)
             .finish_non_exhaustive() // Indicates there are fields not shown (reader)
     }
 }
@@ -62,19 +64,43 @@ impl<R: Read> CsvHashSampler<R> {
             column_index,
             column_values_decision: HashMap::new(),
             header,
+            current_record: None,
+            done: false,
         })
     }
 
-    /// Get the header record
+    /// Returns the header record
     pub fn header(&self) -> &csv::StringRecord {
         &self.header
     }
 
-    /// Sample the CSV data and return all records that pass the sampling criteria
-    /// This method consumes the sampler and returns all matching records at once
-    /// For streaming access, use the Iterator implementation instead
+    /// Samples the CSV data and returns all records that pass the sampling criteria
     pub fn collect_all(self) -> io::Result<Vec<csv::StringRecord>> {
         self.collect::<io::Result<Vec<_>>>()
+    }
+
+    /// Reads the next record from the CSV reader
+    fn read_next_record(&mut self) -> Option<io::Result<csv::StringRecord>> {
+        if self.done {
+            return None;
+        }
+
+        match self.reader.read_record(
+            self.current_record
+                .get_or_insert_with(csv::StringRecord::new),
+        ) {
+            Ok(has_record) => {
+                if !has_record {
+                    self.done = true;
+                    return None;
+                }
+                Some(Ok(self.current_record.as_ref().unwrap().clone()))
+            }
+            Err(e) => {
+                self.done = true;
+                Some(Err(io::Error::new(io::ErrorKind::InvalidData, e)))
+            }
+        }
     }
 }
 
@@ -86,12 +112,12 @@ impl<R: Read> Iterator for CsvHashSampler<R> {
         // Keep reading records until we find one that should be included or reach the end
         loop {
             // Get the next record from the CSV reader
-            let record_result = self.reader.records().next()?;
+            let record_result = self.read_next_record()?;
 
             // Handle any errors reading the record
             let record = match record_result {
                 Ok(r) => r,
-                Err(e) => return Some(Err(io::Error::new(io::ErrorKind::InvalidData, e))),
+                Err(e) => return Some(Err(e)),
             };
 
             // Get the column value

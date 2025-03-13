@@ -8,6 +8,7 @@ pub enum Error {
     HashRequiresCsvMode,
     HashRequiresPercentage,
     ColumnNotFound(String),
+    MissingRequiredOption(String),
     IoError(io::Error),
 }
 
