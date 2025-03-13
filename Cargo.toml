@@ -2,7 +2,7 @@
 name = "sample"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["AK <jania902@gmail.com>"]
 description = "A simple CLI tool for sampling"
 
 [dependencies]
