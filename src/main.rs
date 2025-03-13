@@ -1,11 +1,17 @@
-use rand::thread_rng;
+use rand::rngs::StdRng;
+use rand::{thread_rng, SeedableRng};
 use std::io::{self, BufRead};
 use std::process;
 
 use sample::{config, error::Error, reservoir_sample};
 
 fn process_input(config: &config::Config) -> sample::Result<()> {
-    let mut rng = thread_rng();
+    let mut rng = if let Some(seed) = config.seed {
+        StdRng::seed_from_u64(seed)
+    } else {
+        StdRng::from_rng(thread_rng()).unwrap()
+    };
+
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
 
@@ -33,6 +39,11 @@ fn main() {
         Ok(config) => config,
         Err(Error::InvalidSampleSize) => {
             eprintln!("Error: sample size must be a positive integer");
+            config::print_usage();
+            process::exit(1);
+        }
+        Err(Error::InvalidSeedValue) => {
+            eprintln!("Error: seed must be a valid number");
             config::print_usage();
             process::exit(1);
         }

@@ -39,10 +39,14 @@ cargo test -- --nocapture
 ## Usage
 
 ```
-sample <sample_size>
+sample <sample_size> [--header] [--seed <number>]
 ```
 
 The program reads lines from standard input and outputs a random sample of the specified size.
+
+Options:
+- `--header`: Preserve the first line as header (don't count in sampling)
+- `--seed <number>`: Set a fixed random seed for reproducible output
 
 ### Example
 
@@ -58,6 +62,12 @@ Sample 5 lines from a command output:
 ls -la | sample 5
 ```
 
+Get reproducible output by setting a fixed seed:
+
+```bash
+cat data.txt | sample 10 --seed 42
+```
+
 ## How It Works
 
 1. The first k elements are put into the "reservoir".
@@ -65,3 +75,5 @@ ls -la | sample 5
 3. When the algorithm finishes, the reservoir contains a random sample of k elements from the stream.
 
 This implementation ensures that each item in the stream has an equal probability of being selected in the final sample.
+
+When using a fixed seed, the output will be deterministic, making it useful for reproducible sampling.

@@ -3,6 +3,7 @@ use std::io;
 #[derive(Debug)]
 pub enum Error {
     InvalidSampleSize,
+    InvalidSeedValue,
     IoError(io::Error),
 }
 
