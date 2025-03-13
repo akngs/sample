@@ -1,51 +1,31 @@
-use rand::thread_rng;
-use std::io::{self, BufRead};
-use std::process;
+use rand::Rng;
 
-use sample::{config, error::Error, reservoir_sample};
+/// Performs reservoir sampling on an iterator of items
+/// Returns a random sample of size k
+pub fn reservoir_sample<T, I, R>(iter: I, k: usize, rng: &mut R) -> Vec<T>
+where
+    I: Iterator<Item = T>,
+    R: Rng,
+{
+    let mut reservoir: Vec<T> = Vec::with_capacity(k);
+    let mut count: usize = 0;
 
-fn process_input(config: &config::Config) -> sample::Result<()> {
-    let mut rng = thread_rng();
-    let stdin = io::stdin();
-    let mut lines = stdin.lock().lines();
+    for item in iter {
+        count += 1;
 
-    // Handle header if enabled
-    if config.preserve_header {
-        if let Some(header) = lines.next() {
-            println!("{}", header?);
+        if count <= k {
+            // Fill the reservoir with the first k items
+            reservoir.push(item);
+        } else {
+            // Replace elements with decreasing probability
+            let j = rng.gen_range(0..count);
+            if j < k {
+                reservoir[j] = item;
+            }
         }
     }
 
-    // Perform sampling on remaining lines
-    let lines_iter = lines.map_while(|line: std::io::Result<String>| line.ok());
-    let sampled_lines = reservoir_sample(lines_iter, config.sample_size, &mut rng);
-
-    // Output sampled lines
-    for line in sampled_lines {
-        println!("{}", line);
-    }
-
-    Ok(())
-}
-
-fn main() {
-    let config = match config::parse_args() {
-        Ok(config) => config,
-        Err(Error::InvalidSampleSize) => {
-            eprintln!("Error: sample size must be a positive integer");
-            config::print_usage();
-            process::exit(1);
-        }
-        Err(Error::IoError(e)) => {
-            eprintln!("Error reading input: {}", e);
-            process::exit(1);
-        }
-    };
-
-    if let Err(e) = process_input(&config) {
-        eprintln!("Error: {:?}", e);
-        process::exit(1);
-    }
+    reservoir
 }
 
 #[cfg(test)]
