@@ -1,0 +1,13 @@
+# Rust build artifacts
+/target/
+
+# IDE and editor files
+*.swp
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Debug files
+*.pdb

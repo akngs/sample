@@ -1,0 +1,9 @@
+[package]
+name = "sample"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A simple CLI tool for sampling"
+
+[dependencies]
+rand = "0.8.5" 
