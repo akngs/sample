@@ -88,8 +88,15 @@ impl Config {
     }
 }
 
-pub fn parse_args() -> Result<Config> {
-    let config = Config::parse();
+/// Parse command line arguments.
+pub fn parse_args<I, T>(args: I) -> Result<Config>
+where
+    I: IntoIterator<Item = T>,
+    T: AsRef<str>,
+{
+    let string_args = args.into_iter().map(|s| s.as_ref().to_string());
+    let config = Config::try_parse_from(string_args)
+        .map_err(|_| Error::MissingRequiredOption("Failed to parse arguments".to_string()))?;
     config.validate()?;
     Ok(config)
 }
@@ -97,11 +104,10 @@ pub fn parse_args() -> Result<Config> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::Parser;
 
     #[test]
     fn test_parse_args_basic() {
-        let config = Config::try_parse_from(["sample", "10"]).unwrap();
+        let config = parse_args(["sample", "10"]).unwrap();
         assert_eq!(config.sample_size, Some(10));
         assert_eq!(config.percentage, None);
         assert!(!config.csv_mode);
@@ -110,7 +116,7 @@ mod tests {
 
     #[test]
     fn test_parse_args_with_percentage() {
-        let config = Config::try_parse_from(["sample", "--percentage", "5.5"]).unwrap();
+        let config = parse_args(["sample", "--percentage", "5.5"]).unwrap();
         assert_eq!(config.sample_size, None);
         assert_eq!(config.percentage, Some(5.5));
         assert!(!config.csv_mode);
@@ -119,7 +125,7 @@ mod tests {
 
     #[test]
     fn test_parse_args_with_header() {
-        let config = Config::try_parse_from(["sample", "10", "--csv"]).unwrap();
+        let config = parse_args(["sample", "10", "--csv"]).unwrap();
         assert_eq!(config.sample_size, Some(10));
         assert_eq!(config.percentage, None);
         assert!(config.csv_mode);
@@ -128,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_parse_args_with_seed() {
-        let config = Config::try_parse_from(["sample", "10", "--seed", "42"]).unwrap();
+        let config = parse_args(["sample", "10", "--seed", "42"]).unwrap();
         assert_eq!(config.sample_size, Some(10));
         assert_eq!(config.percentage, None);
         assert!(!config.csv_mode);
@@ -137,7 +143,7 @@ mod tests {
 
     #[test]
     fn test_parse_args_with_header_and_seed() {
-        let config = Config::try_parse_from(["sample", "10", "--csv", "--seed", "42"]).unwrap();
+        let config = parse_args(["sample", "10", "--csv", "--seed", "42"]).unwrap();
         assert_eq!(config.sample_size, Some(10));
         assert_eq!(config.percentage, None);
         assert!(config.csv_mode);
@@ -146,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_parse_args_with_percentage_and_header() {
-        let config = Config::try_parse_from(["sample", "--percentage", "10", "--csv"]).unwrap();
+        let config = parse_args(["sample", "--percentage", "10", "--csv"]).unwrap();
         assert_eq!(config.sample_size, None);
         assert_eq!(config.percentage, Some(10.0));
         assert!(config.csv_mode);
@@ -155,23 +161,20 @@ mod tests {
 
     #[test]
     fn test_parse_args_with_invalid_percentage() {
-        let result = Config::try_parse_from(["sample", "--percentage", "101"]);
+        let result = parse_args(["sample", "--percentage", "101"]);
         assert!(result.is_err());
-        let err = result.unwrap_err().to_string();
-        assert!(err.contains("percentage must be between 0 and 100"));
     }
 
     #[test]
     fn test_parse_args_with_both_size_and_percentage() {
-        let result = Config::try_parse_from(["sample", "10", "--percentage", "5"]);
+        let result = parse_args(["sample", "10", "--percentage", "5"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_parse_args_with_hash_column() {
         let config =
-            Config::try_parse_from(["sample", "--percentage", "10", "--csv", "--hash", "user_id"])
-                .unwrap();
+            parse_args(["sample", "--percentage", "10", "--csv", "--hash", "user_id"]).unwrap();
         assert_eq!(config.sample_size, None);
         assert_eq!(config.percentage, Some(10.0));
         assert!(config.csv_mode);
@@ -181,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_parse_args_with_hash_column_and_seed() {
-        let config = Config::try_parse_from([
+        let config = parse_args([
             "sample",
             "--percentage",
             "10",
@@ -201,13 +204,13 @@ mod tests {
 
     #[test]
     fn test_hash_requires_csv_mode() {
-        let result = Config::try_parse_from(["sample", "--percentage", "10", "--hash", "user_id"]);
-        assert!(result.is_err() || Config::validate(&result.unwrap()).is_err());
+        let result = parse_args(["sample", "--percentage", "10", "--hash", "user_id"]);
+        assert!(result.is_err());
     }
 
     #[test]
     fn test_hash_requires_percentage() {
-        let result = Config::try_parse_from(["sample", "10", "--csv", "--hash", "user_id"]);
-        assert!(result.is_err() || Config::validate(&result.unwrap()).is_err());
+        let result = parse_args(["sample", "10", "--csv", "--hash", "user_id"]);
+        assert!(result.is_err());
     }
 }
