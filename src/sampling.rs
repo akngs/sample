@@ -1,4 +1,5 @@
 use rand::Rng;
+use std::iter::Iterator;
 
 /// Performs reservoir sampling on an iterator of items
 /// Returns a random sample of size k
@@ -28,28 +29,56 @@ where
     reservoir
 }
 
-/// Performs random sampling based on a percentage
-/// Returns a random sample containing approximately percentage% of the input
-pub fn percentage_sample<T, I, R>(iter: I, percentage: f64, rng: &mut R) -> Vec<T>
+/// A streaming iterator that performs random sampling based on a percentage
+pub struct PercentageSampleIter<I, R> {
+    iter: I,
+    rng: R,
+    probability: f64,
+}
+
+impl<I, R> PercentageSampleIter<I, R> {
+    pub fn new(iter: I, percentage: f64, rng: R) -> Self {
+        assert!(
+            (0.0..=100.0).contains(&percentage),
+            "Percentage must be between 0 and 100"
+        );
+        PercentageSampleIter {
+            iter,
+            rng,
+            probability: percentage / 100.0,
+        }
+    }
+}
+
+impl<T, I: Iterator<Item = T>, R: Rng> Iterator for PercentageSampleIter<I, R> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.iter.next() {
+                Some(item) => {
+                    if self.rng.gen::<f64>() < self.probability {
+                        return Some(item);
+                    }
+                }
+                None => return None,
+            }
+        }
+    }
+}
+
+/// Creates a streaming percentage sampler that returns an iterator
+/// Each item has percentage% chance of being included in the output
+pub fn percentage_sample_iter<T, I, R>(
+    iter: I,
+    percentage: f64,
+    rng: R,
+) -> PercentageSampleIter<I, R>
 where
     I: Iterator<Item = T>,
     R: Rng,
 {
-    assert!(
-        (0.0..=100.0).contains(&percentage),
-        "Percentage must be between 0 and 100"
-    );
-
-    let prob = percentage / 100.0;
-    let mut result = Vec::new();
-
-    for item in iter {
-        if rng.gen::<f64>() < prob {
-            result.push(item);
-        }
-    }
-
-    result
+    PercentageSampleIter::new(iter, percentage, rng)
 }
 
 #[cfg(test)]
@@ -138,13 +167,13 @@ mod tests {
     }
 
     #[test]
-    fn test_percentage_sample() {
+    fn test_percentage_sample_iter() {
         let items: Vec<i32> = (1..1001).collect(); // 1000 items
         let percentage = 10.0; // 10%
         let seed = [42; 32];
-        let mut rng = StdRng::from_seed(seed);
+        let rng = StdRng::from_seed(seed);
 
-        let sample = percentage_sample(items.iter(), percentage, &mut rng);
+        let sample: Vec<_> = percentage_sample_iter(items.iter(), percentage, rng).collect();
 
         // With 10%, we expect roughly 100 items, but allow for random variation
         assert!(sample.len() > 50 && sample.len() < 150);
@@ -157,9 +186,9 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Percentage must be between 0 and 100")]
-    fn test_percentage_sample_invalid_percentage() {
+    fn test_percentage_sample_iter_invalid_percentage() {
         let items = [1, 2, 3];
-        let mut rng = rand::thread_rng();
-        let _ = percentage_sample(items.iter(), 101.0, &mut rng);
+        let rng = rand::thread_rng();
+        let _ = percentage_sample_iter(items.iter(), 101.0, rng);
     }
 }

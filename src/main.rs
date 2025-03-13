@@ -3,7 +3,7 @@ use rand::{thread_rng, SeedableRng};
 use std::io::{self, BufRead};
 use std::process;
 
-use sample::{config, error::Error, percentage_sample, reservoir_sample};
+use sample::{config, error::Error, percentage_sample_iter, reservoir_sample};
 
 fn process_input(config: &config::Config) -> sample::Result<()> {
     let mut rng = if let Some(seed) = config.seed {
@@ -22,21 +22,28 @@ fn process_input(config: &config::Config) -> sample::Result<()> {
         }
     }
 
-    // Collect lines into a vector since we need them for both sampling methods
+    // Create an iterator over the remaining lines
     let lines_iter = lines.map_while(|line: std::io::Result<String>| line.ok());
-    let lines: Vec<String> = lines_iter.collect();
 
     // Perform sampling based on the configuration
-    let sampled_lines = match (config.sample_size, config.percentage) {
-        (Some(k), None) => reservoir_sample(lines.iter(), k, &mut rng),
-        (None, Some(percentage)) => percentage_sample(lines.iter(), percentage, &mut rng),
+    match (config.sample_size, config.percentage) {
+        (Some(k), None) => {
+            // For reservoir sampling, we need to collect all lines
+            let lines: Vec<String> = lines_iter.collect();
+            let sampled_lines = reservoir_sample(lines.iter(), k, &mut rng);
+            for line in sampled_lines {
+                println!("{}", line);
+            }
+        }
+        (None, Some(percentage)) => {
+            // For percentage sampling, we can stream directly
+            let sampled_iter = percentage_sample_iter(lines_iter, percentage, rng);
+            for line in sampled_iter {
+                println!("{}", line);
+            }
+        }
         _ => unreachable!("Config validation ensures one of sample_size or percentage is set"),
     };
-
-    // Output sampled lines
-    for line in sampled_lines {
-        println!("{}", line);
-    }
 
     Ok(())
 }
