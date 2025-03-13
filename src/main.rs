@@ -4,9 +4,12 @@ use std::io::{self, BufRead};
 use std::process;
 
 fn print_usage() {
-    eprintln!("Usage: sample <sample_size>");
+    eprintln!("Usage: sample <sample_size> [--header]");
     eprintln!("Reads lines from stdin and outputs a random sample of the specified size.");
+    eprintln!("Options:");
+    eprintln!("  --header  Preserve the first line as header (don't count in sampling)");
     eprintln!("Example: cat data.txt | sample 10");
+    eprintln!("         cat data.csv | sample 10 --header");
 }
 
 /// Performs reservoir sampling on an iterator of items
@@ -41,10 +44,13 @@ fn main() {
     // Parse command line arguments
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 2 {
+    if args.len() < 2 || args.len() > 3 {
         print_usage();
         process::exit(1);
     }
+
+    // Check if header preservation is enabled
+    let preserve_header = args.len() == 3 && args[2] == "--header";
 
     // Parse the sample size
     let k = match args[1].parse::<usize>() {
@@ -59,12 +65,25 @@ fn main() {
     // Set up RNG and stdin
     let mut rng = rand::thread_rng();
     let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
 
-    // Read lines from stdin and perform reservoir sampling
-    let lines_iter = stdin.lock().lines().map_while(Result::ok);
+    // Handle header if enabled
+    let header = if preserve_header {
+        lines.next().and_then(|result| result.ok())
+    } else {
+        None
+    };
+
+    // Perform sampling on remaining lines
+    let lines_iter = lines.map_while(Result::ok);
     let sampled_lines = reservoir_sample(lines_iter, k, &mut rng);
 
-    // Output the sampled items
+    // Output header if present
+    if let Some(header_line) = header {
+        println!("{}", header_line);
+    }
+
+    // Output sampled lines
     for line in sampled_lines {
         println!("{}", line);
     }
@@ -137,5 +156,21 @@ mod tests {
         let sample = reservoir_sample(items.into_iter(), k, &mut rng);
 
         assert_eq!(sample.len(), 0);
+    }
+
+    #[test]
+    fn test_reservoir_sample_with_header() {
+        let mut rng = rand::thread_rng();
+        let lines = [
+            "header".to_string(),
+            "data1".to_string(),
+            "data2".to_string(),
+            "data3".to_string(),
+        ];
+        let k = 2;
+
+        // Simulate sampling without header
+        let sample = reservoir_sample(lines[1..].iter(), k, &mut rng);
+        assert_eq!(sample.len(), k);
     }
 }

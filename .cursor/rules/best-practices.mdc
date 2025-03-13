@@ -7,7 +7,7 @@ Follow these rules when you edit source files:
 
 - Before adding new functionality, refactor current code first (if necessary) and then add unit tests. After that, you can add new functionality.
 - Prefer pure functions and add tests to cover them.
-- Always run `npm run validate` after editing code.
+- Always run `rustfmt`, `clippy`, and `test` after changing the code.
 
 Commit message should follow this form:
 
