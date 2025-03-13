@@ -3,16 +3,29 @@ description: Development practices to follow
 globs: src/**/*.rs
 alwaysApply: false
 ---
-Follow these rules when you edit source files:
+General rules:
 
-- Before adding new functionality, refactor current code first (if necessary) and then add unit tests. After that, you can add new functionality.
+- Write canonical Rust code.
+- Try best to remove duplications and reveal intention clearly.
+- When performing refactoring, try best to keep the current behavior. If you change external behavior of the code, it is not a refactoring.
 - Prefer pure functions and add tests to cover them.
+- Keep functions small and focused
 - Always run `rustfmt`, `clippy`, and `test` after changing the code.
+
+Testing:
+
+- Test both success and error cases
+- Use meaningful test descriptions
+- Keep test files close to implementation
+
+Misc.
+
+- Always keep documents and comments in sync with the code.
 
 Commit message should follow this form:
 
 ```
-Short (72 chars or less) summary
+Short (72 chars or less) summary starts with verb, e.g. "Add," "Fix," "Delete," and so on.
 
 More detailed explanatory text. Wrap it to 72 characters. The blank
 line separating the summary from the body is critical (unless you omit
@@ -28,17 +41,3 @@ Further paragraphs come after blank lines.
 - Typically a hyphen or asterisk is used for the bullet, followed by a
   single space. Use a hanging indent.
 ```
-
-Testing:
-
-- Write tests first (TDD when possible)
-- Keep functions small and focused
-- Use meaningful variable and function names
-- Run tests frequently
-- Test both success and error cases
-- Use meaningful test descriptions
-- Keep test files close to implementation
-
-Misc.
-
-- Always keep documents and comments in sync with the code.
