@@ -1,5 +1,4 @@
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Read};
@@ -9,7 +8,6 @@ pub struct CsvHashSampler<R: Read> {
     reader: csv::Reader<R>,
     probability: f64,
     column_index: usize,
-    column_values_decision: HashMap<String, bool>,
     header: csv::StringRecord,
     current_record: Option<csv::StringRecord>,
     done: bool,
@@ -21,7 +19,6 @@ impl<R: Read> fmt::Debug for CsvHashSampler<R> {
         f.debug_struct("CsvHashSampler")
             .field("probability", &self.probability)
             .field("column_index", &self.column_index)
-            .field("column_values_decision", &self.column_values_decision)
             .field("header", &self.header)
             .field("done", &self.done)
             .finish_non_exhaustive() // Indicates there are fields not shown (reader)
@@ -62,7 +59,6 @@ impl<R: Read> CsvHashSampler<R> {
             reader: csv_reader,
             probability: percentage / 100.0,
             column_index,
-            column_values_decision: HashMap::new(),
             header,
             current_record: None,
             done: false,
@@ -129,17 +125,9 @@ impl<R: Read> Iterator for CsvHashSampler<R> {
                 }
             };
 
-            // Check if we've already made a decision for this column value
-            let include = match self.column_values_decision.get(&column_value) {
-                Some(&decision) => decision,
-                None => {
-                    // Make a consistent decision for this column value
-                    let hash_value = calculate_hash(&column_value);
-                    let decision = (hash_value as f64 / u64::MAX as f64) < self.probability;
-                    self.column_values_decision.insert(column_value, decision);
-                    decision
-                }
-            };
+            // Calculate hash and make decision directly
+            let hash_value = calculate_hash(&column_value);
+            let include = (hash_value as f64 / u64::MAX as f64) < self.probability;
 
             if include {
                 return Some(Ok(record));
