@@ -6,24 +6,41 @@ use crate::error::{Error, Result};
 #[derive(Debug, Parser)]
 #[command(
     name = "sample",
-    about = "Reads lines from stdin and outputs a random sample.",
-    long_about = None
+    about = "A command-line tool for random sampling of input data",
+    long_about = "Reads lines from standard input and outputs a random sample. Supports both fixed-size sampling (using reservoir sampling) and percentage-based sampling.",
+    version,
+    after_help = "EXAMPLES:
+    # Sample 10 lines from a file (using reservoir sampling)
+    cat data.txt | sample 10
+
+    # Sample 5% of lines from a file
+    cat data.txt | sample -p 5
+
+    # Sample from a CSV file, preserving the header
+    cat data.csv | sample 10 -H
+
+    # Get reproducible output using a fixed seed
+    cat data.txt | sample 10 -s 42"
 )]
 pub struct Config {
-    /// Number of lines to sample
+    /// Number of lines to sample using reservoir sampling algorithm.
+    /// Cannot be used together with --percentage.
     #[arg(conflicts_with = "percentage", value_name = "SAMPLE_SIZE")]
     pub sample_size: Option<usize>,
 
-    /// Percentage of lines to sample (0-100)
-    #[arg(long, value_name = "VALUE", value_parser = percentage_validator)]
+    /// Percentage of lines to sample (0-100).
+    /// Each line has this percentage chance of being included.
+    #[arg(short = 'p', long, value_name = "VALUE", value_parser = percentage_validator)]
     pub percentage: Option<f64>,
 
-    /// Preserve the first line as header (don't count in sampling)
-    #[arg(long = "header")]
+    /// Preserve the first line as header (don't count in sampling).
+    /// Useful when working with CSV files or data with column headers.
+    #[arg(short = 'H', long = "header")]
     pub preserve_header: bool,
 
-    /// Set a fixed random seed for reproducible output
-    #[arg(long, value_name = "NUMBER")]
+    /// Set a fixed random seed for reproducible output.
+    /// Using the same seed will produce the same sample for identical input.
+    #[arg(short = 's', long, value_name = "NUMBER")]
     pub seed: Option<u64>,
 }
 

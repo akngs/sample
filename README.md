@@ -1,10 +1,6 @@
-# Sampling CLI
+# Sampling utility
 
 A simple command-line tool that performs random sampling on input data, supporting both fixed-size sampling (using reservoir sampling) and percentage-based sampling.
-
-## What is Reservoir Sampling?
-
-Reservoir sampling is a family of randomized algorithms for randomly selecting k samples from a list of n items, where n is either a very large or unknown number. This implementation uses Algorithm R, which has O(n) time complexity.
 
 ## Installation
 
@@ -39,19 +35,24 @@ cargo test -- --nocapture
 ## Usage
 
 ```
-sample [OPTIONS] [SAMPLE_SIZE]
+A command-line tool for random sampling of input data
+
+Usage: sample [OPTIONS] [SAMPLE_SIZE]
 
 Arguments:
-  [SAMPLE_SIZE]  Number of lines to sample
+  [SAMPLE_SIZE]  Number of lines to sample using reservoir sampling algorithm
 
 Options:
-  --percentage <VALUE>  Percentage of lines to sample (0-100)
-  --header             Preserve the first line as header (don't count in sampling)
-  --seed <NUMBER>      Set a fixed random seed for reproducible output
-  -h, --help          Print help
-```
+  -p, --percentage <VALUE>  Percentage of lines to sample (0-100)
+  -H, --header             Preserve the first line as header (don't count in sampling)
+  -s, --seed <NUMBER>      Set a fixed random seed for reproducible output
+  -h, --help              Print help
+  -V, --version           Print version
 
-The program reads lines from standard input and outputs a random sample. You can either specify a fixed number of lines to sample (using reservoir sampling) or a percentage of lines to sample (using random sampling).
+The program reads lines from standard input and outputs a random sample. You can either:
+1. Specify a fixed number of lines to sample (using reservoir sampling), or
+2. Specify a percentage of lines to sample (using random sampling)
+```
 
 ### Examples
 
@@ -64,19 +65,19 @@ cat data.txt | sample 10
 Sample 5% of lines from a file (using random sampling):
 
 ```bash
-cat data.txt | sample --percentage 5
+cat data.txt | sample -p 5
 ```
 
 Sample from a CSV file, preserving the header:
 
 ```bash
-cat data.csv | sample 10 --header
+cat data.csv | sample 10 -H
 ```
 
 Get reproducible output by setting a fixed seed:
 
 ```bash
-cat data.txt | sample 10 --seed 42
+cat data.txt | sample 10 -s 42
 ```
 
 ## How It Works
